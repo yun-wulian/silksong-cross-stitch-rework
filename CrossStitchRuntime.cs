@@ -23,6 +23,7 @@ internal sealed class CrossStitchRuntime
     private const float RecoveryAnimationDuration = 0.25f;
     private const int TerrainLayerMask = 8448;
     private const float LandingWallInset = 0.35f;
+    private const float ForwardLandingFraction = 0.75f;
 
     private readonly object successInvulnerabilitySource = new();
     private readonly object movementInvulnerabilitySource = new();
@@ -155,7 +156,8 @@ internal sealed class CrossStitchRuntime
         InputHandler? input = GetInputHandler();
         bool attackIsPressed = input?.inputActions.Attack.IsPressed == true;
         bool landForward = !counterAttackWasReleased && counterEndpointValid;
-        Vector2 target = landForward ? ClampLandingToTerrain(counterOrigin, counterEndpoint) : counterOrigin;
+        Vector2 requested = Vector2.Lerp(counterOrigin, counterEndpoint, ForwardLandingFraction);
+        Vector2 target = landForward ? ClampLandingToTerrain(counterOrigin, requested) : counterOrigin;
 
         if (Plugin.DebugCounterWithoutPhantom.Value)
         {

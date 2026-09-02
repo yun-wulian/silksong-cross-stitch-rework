@@ -12,13 +12,20 @@ A BepInEx 6 runtime rework of the Cross Stitch (`Parry` / `PARRY`) skill.
 - A successful guard no longer counters automatically.
 - Press attack during the counter window to counter when `hasParry` is true and the current native `SilkSkillCost` can be paid; the same native cost is then consumed.
 - Press Cross Stitch again after a successful guard to chain another guard.
+- A successful guard consumes only the overlapping damage source that triggered it. That source cannot damage or be guarded again until it leaves the fixed Cross Stitch contact box; entering again is a new valid hit.
 - Attack and other skill inputs cancel immediately; held movement cancels after a short delay.
 - The hero stays invulnerable for the complete successful-guard/counter-ready state; movement cancel carries a short additional invulnerability window.
 - The success pose reuses the stable final guard frame, avoiding the apparent backward slide caused by the original `Parry Clash` sprite pivots.
 - Debug mode can unlock the counterattack without changing `hasParry` or `defeatedPhantom`.
 - The native `Parry Catch` backward velocity and deceleration are removed.
 - Releasing attack lands the hero at the position where the counter began.
-- Holding attack through the counter lands the hero at the forward end of the slash hitbox, clamped before solid terrain.
+- Holding attack through the counter lands the hero 75% of the way toward the forward end of the slash hitbox, clamped before solid terrain.
+
+The consumed-contact rule applies uniformly to enemy bodies, melee hitboxes, and
+projectiles. It uses physics overlap rather than hero invulnerability or the current
+animation's mutable hurtbox, so the successful-guard invulnerability window cannot
+mistakenly rearm an attack. A reflected or returning projectile becomes valid again
+after it has physically left and re-entered the contact box.
 
 ## Optional independent guard binding
 
