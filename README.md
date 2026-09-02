@@ -1,6 +1,6 @@
 # Cross Stitch Rework
 
-A BepInEx 6 runtime rework of the Cross Stitch (`Parry` / `PARRY`) skill.
+A BepInEx 5.4.23.4 runtime rework of the Cross Stitch (`Parry` / `PARRY`) skill.
 
 ## Behaviour
 

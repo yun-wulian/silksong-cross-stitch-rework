@@ -2,7 +2,7 @@
   <PropertyGroup>
     <AssemblyName>CrossStitchRework</AssemblyName>
     <RootNamespace>CrossStitchRework</RootNamespace>
-    <Version>0.5.4</Version>
+    <Version>0.5.5</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,16 +10,8 @@
       <HintPath>$(BepInExCoreDir)0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="BepInEx.Core">
-      <HintPath>$(BepInExCoreDir)BepInEx.Core.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="BepInEx.Unity.Common">
-      <HintPath>$(BepInExCoreDir)BepInEx.Unity.Common.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="BepInEx.Unity.Mono">
-      <HintPath>$(BepInExCoreDir)BepInEx.Unity.Mono.dll</HintPath>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExCoreDir)BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
