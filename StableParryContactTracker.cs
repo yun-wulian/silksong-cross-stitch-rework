@@ -5,8 +5,11 @@ namespace CrossStitchRework;
 
 internal sealed class StableParryContactTracker : MonoBehaviour, CustomPlayerLoop.ILateFixedUpdate
 {
-    private static readonly Vector2 ParryBoxOffset = new(-0.017f, -0.14f);
-    private static readonly Vector2 ParryBoxSize = new(1.18f, 1.77f);
+    private const float ReleasePadding = 0.5f;
+    private static readonly Vector2 ReleaseBoxOffset = new(-0.017f, -0.3799f);
+    private static readonly Vector2 ReleaseBoxSize = new(
+        1.18f + ReleasePadding * 2f,
+        2.2498f + ReleasePadding * 2f);
 
     private readonly List<Collider2D> overlaps = new(32);
     private readonly HashSet<int> overlappingSources = new();
@@ -28,9 +31,9 @@ internal sealed class StableParryContactTracker : MonoBehaviour, CustomPlayerLoo
     {
         Vector3 scale = transform.lossyScale;
         Vector2 worldSize = new(
-            ParryBoxSize.x * Mathf.Abs(scale.x),
-            ParryBoxSize.y * Mathf.Abs(scale.y));
-        Vector2 worldCenter = transform.TransformPoint(ParryBoxOffset);
+            ReleaseBoxSize.x * Mathf.Abs(scale.x),
+            ReleaseBoxSize.y * Mathf.Abs(scale.y));
+        Vector2 worldCenter = transform.TransformPoint(ReleaseBoxOffset);
 
         overlaps.Clear();
         Physics2D.OverlapBox(

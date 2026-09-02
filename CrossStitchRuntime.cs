@@ -26,7 +26,7 @@ internal sealed class CrossStitchRuntime
     private const float ForwardLandingFraction = 0.75f;
 
     private readonly object successInvulnerabilitySource = new();
-    private readonly object movementInvulnerabilitySource = new();
+    private readonly object actionInvulnerabilitySource = new();
     private readonly BetterBindingsBridge betterBindings = new();
 
     private PlayerData? accessPlayerData;
@@ -45,8 +45,8 @@ internal sealed class CrossStitchRuntime
     private HeroController? successHero;
     private Fsm? successFsm;
 
-    private HeroController? movementInvulnerabilityHero;
-    private float movementInvulnerabilityEndsAt;
+    private HeroController? actionInvulnerabilityHero;
+    private float actionInvulnerabilityEndsAt;
 
     private bool counterLandingPending;
     private bool counterEndpointValid;
@@ -67,7 +67,7 @@ internal sealed class CrossStitchRuntime
 
     internal void Update()
     {
-        UpdateMovementInvulnerability();
+        UpdateActionInvulnerability();
         UpdateCounterLandingInput();
         EnsureInitialAccess();
         UpdateSuccessfulGuard();
@@ -90,7 +90,7 @@ internal sealed class CrossStitchRuntime
         }
 
         EndSuccessfulGuard(clearParryAttack: true);
-        ReleaseMovementInvulnerability();
+        ReleaseActionInvulnerability();
 
         successActive = true;
         successHero = hero;
@@ -190,7 +190,7 @@ internal sealed class CrossStitchRuntime
     internal void Dispose()
     {
         EndSuccessfulGuard(clearParryAttack: true);
-        ReleaseMovementInvulnerability();
+        ReleaseActionInvulnerability();
         betterBindings.Dispose();
         ClearCounterLanding();
     }
@@ -376,7 +376,7 @@ internal sealed class CrossStitchRuntime
         hero.TakeSilk(cost);
         hero.ResetInputQueues();
         PrepareCounterLanding(hero, fsm);
-        EndSuccessfulGuard(clearParryAttack: true);
+        EndSuccessfulGuardForAction(hero);
         hero.cState.parryAttack = true;
 
         if (actions.Right.IsPressed)
@@ -404,7 +404,7 @@ internal sealed class CrossStitchRuntime
 
         hero.ResetInputQueues();
         hero.SetStartWithToolThrow();
-        ExitThroughSpecialEnd(hero, fsm, carryMovementInvulnerability: false);
+        ExitThroughSpecialEnd(hero, fsm);
     }
 
     private void OnIndependentGuardPressed()
@@ -428,11 +428,16 @@ internal sealed class CrossStitchRuntime
         if (heroController == null ||
             gameManager == null ||
             gameManager.GameState != GameState.PLAYING ||
-            !heroController.CanThrowTool(checkGetWillThrow: false))
+            !CanStartIndependentGuard(heroController))
         {
             return;
         }
 
+        if (heroController.cState.attacking)
+        {
+            heroController.CancelAttack();
+        }
+        heroController.ResetInputQueues();
         EventRegister.SendEvent(EventRegisterEvents.FsmCancel);
         heroController.silkSpecialFSM.SendEvent(ParryEventName);
     }
@@ -446,7 +451,32 @@ internal sealed class CrossStitchRuntime
             return false;
         }
 
-        return successActive || hero.CanThrowTool(checkGetWillThrow: false);
+        return successActive || CanStartIndependentGuard(hero);
+    }
+
+    private static bool CanStartIndependentGuard(HeroController hero)
+    {
+        if (!hero.CanInput() ||
+            hero.controlReqlinquished ||
+            hero.cState.dead ||
+            hero.cState.hazardDeath ||
+            hero.cState.hazardRespawning ||
+            hero.cState.transitioning ||
+            hero.cState.recoiling ||
+            hero.hero_state == ActorStates.no_input ||
+            hero.hero_state == ActorStates.hard_landing ||
+            hero.hero_state == ActorStates.dash_landing ||
+            InteractManager.BlockingInteractable != null)
+        {
+            return false;
+        }
+
+        if (hero.cState.attacking)
+        {
+            return !hero.cState.dashing;
+        }
+
+        return hero.CanThrowTool(checkGetWillThrow: false);
     }
 
     private void ChainGuard(HeroController hero, Fsm fsm)
@@ -460,20 +490,20 @@ internal sealed class CrossStitchRuntime
     {
         hero.ResetInputQueues();
         hero.SetStartWithAttack();
-        ExitThroughSpecialEnd(hero, fsm, carryMovementInvulnerability: false);
+        ExitThroughSpecialEnd(hero, fsm);
     }
 
     private void CancelToBind(HeroController hero, Fsm fsm)
     {
         hero.ResetInputQueues();
-        ExitThroughSpecialEnd(hero, fsm, carryMovementInvulnerability: false);
+        ExitThroughSpecialEnd(hero, fsm);
         hero.bellBindFSM.SendEvent("BUTTON DOWN");
     }
 
     private void CancelToSilkSpecialState(HeroController hero, Fsm fsm, string stateName)
     {
         hero.ResetInputQueues();
-        EndSuccessfulGuard(clearParryAttack: true);
+        EndSuccessfulGuardForAction(hero);
         hero.RegainControl();
         hero.StartAnimationControlToIdle();
         fsm.SetState(stateName);
@@ -491,23 +521,26 @@ internal sealed class CrossStitchRuntime
             hero.SetStartWithDash();
         }
 
-        ExitThroughSpecialEnd(hero, fsm, carryMovementInvulnerability: true);
+        ExitThroughSpecialEnd(hero, fsm);
     }
 
     private void CancelToFree(HeroController hero, Fsm fsm)
     {
         hero.ResetInputQueues();
-        ExitThroughSpecialEnd(hero, fsm, carryMovementInvulnerability: false);
+        EndSuccessfulGuard(clearParryAttack: true);
+        fsm.SetState(ExitState);
     }
 
-    private void ExitThroughSpecialEnd(HeroController hero, Fsm fsm, bool carryMovementInvulnerability)
+    private void ExitThroughSpecialEnd(HeroController hero, Fsm fsm)
+    {
+        EndSuccessfulGuardForAction(hero);
+        fsm.SetState(ExitState);
+    }
+
+    private void EndSuccessfulGuardForAction(HeroController hero)
     {
         EndSuccessfulGuard(clearParryAttack: true);
-        if (carryMovementInvulnerability)
-        {
-            StartMovementInvulnerability(hero);
-        }
-        fsm.SetState(ExitState);
+        StartActionInvulnerability(hero);
     }
 
     private void EndSuccessfulGuard(bool clearParryAttack)
@@ -545,41 +578,41 @@ internal sealed class CrossStitchRuntime
         successInvulnerabilityHeld = false;
     }
 
-    private void StartMovementInvulnerability(HeroController hero)
+    private void StartActionInvulnerability(HeroController hero)
     {
-        ReleaseMovementInvulnerability();
-        if (Plugin.MovementInvulnerabilityCarry.Value <= 0f)
+        ReleaseActionInvulnerability();
+        if (Plugin.ActionInvulnerabilityCarry.Value <= 0f)
         {
             return;
         }
 
-        movementInvulnerabilityHero = hero;
-        movementInvulnerabilityEndsAt = Time.time + Plugin.MovementInvulnerabilityCarry.Value;
-        hero.AddInvulnerabilitySource(movementInvulnerabilitySource);
+        actionInvulnerabilityHero = hero;
+        actionInvulnerabilityEndsAt = Time.time + Plugin.ActionInvulnerabilityCarry.Value;
+        hero.AddInvulnerabilitySource(actionInvulnerabilitySource);
     }
 
-    private void UpdateMovementInvulnerability()
+    private void UpdateActionInvulnerability()
     {
-        if (movementInvulnerabilityHero == null)
+        if (actionInvulnerabilityHero == null)
         {
-            movementInvulnerabilityHero = null;
+            actionInvulnerabilityHero = null;
             return;
         }
 
-        if (Time.time >= movementInvulnerabilityEndsAt || movementInvulnerabilityHero.cState.dead)
+        if (Time.time >= actionInvulnerabilityEndsAt || actionInvulnerabilityHero.cState.dead)
         {
-            ReleaseMovementInvulnerability();
+            ReleaseActionInvulnerability();
         }
     }
 
-    private void ReleaseMovementInvulnerability()
+    private void ReleaseActionInvulnerability()
     {
-        if (movementInvulnerabilityHero != null)
+        if (actionInvulnerabilityHero != null)
         {
-            movementInvulnerabilityHero.RemoveInvulnerabilitySource(movementInvulnerabilitySource);
+            actionInvulnerabilityHero.RemoveInvulnerabilitySource(actionInvulnerabilitySource);
         }
-        movementInvulnerabilityHero = null;
-        movementInvulnerabilityEndsAt = 0f;
+        actionInvulnerabilityHero = null;
+        actionInvulnerabilityEndsAt = 0f;
     }
 
     private void PrepareCounterLanding(HeroController hero, Fsm fsm)

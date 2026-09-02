@@ -13,7 +13,7 @@ public sealed class Plugin : BaseUnityPlugin
 {
     public const string PluginGuid = "modcraft.silksong.cross-stitch-rework";
     public const string PluginName = "Cross Stitch Rework";
-    public const string PluginVersion = "0.5.0";
+    public const string PluginVersion = "0.5.4";
     public const string BetterBindingsGuid = "modcraft.silksong.better-bindings";
 
     internal static Plugin? Instance { get; private set; }
@@ -21,7 +21,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     internal static ConfigEntry<float> CounterWindow { get; private set; } = null!;
     internal static ConfigEntry<float> MovementCancelDelay { get; private set; } = null!;
-    internal static ConfigEntry<float> MovementInvulnerabilityCarry { get; private set; } = null!;
+    internal static ConfigEntry<float> ActionInvulnerabilityCarry { get; private set; } = null!;
     internal static ConfigEntry<bool> DebugCounterWithoutPhantom { get; private set; } = null!;
 
     private readonly CrossStitchRuntime runtime = new();
@@ -47,12 +47,12 @@ public sealed class Plugin : BaseUnityPlugin
             new ConfigDescription(
                 "Delay before held movement, jump, or dash may cancel a successful guard.",
                 new AcceptableValueRange<float>(0f, 0.5f)));
-        MovementInvulnerabilityCarry = Config.Bind(
+        ActionInvulnerabilityCarry = Config.Bind(
             "Timing",
             "MovementInvulnerabilityCarry",
             0.50f,
             new ConfigDescription(
-                "Invulnerability carried into movement after movement-cancelling the recovery.",
+                "Invulnerability carried into an action that cancels a successful guard. A chained guard is excluded.",
                 new AcceptableValueRange<float>(0f, 0.5f)));
         DebugCounterWithoutPhantom = Config.Bind(
             "Debug",
