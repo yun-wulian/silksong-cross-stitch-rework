@@ -13,7 +13,7 @@ public sealed class Plugin : BaseUnityPlugin
 {
     public const string PluginGuid = "modcraft.silksong.cross-stitch-rework";
     public const string PluginName = "Cross Stitch Rework";
-    public const string PluginVersion = "0.3.0";
+    public const string PluginVersion = "0.4.2";
     public const string BetterBindingsGuid = "modcraft.silksong.better-bindings";
 
     internal static Plugin? Instance { get; private set; }
@@ -84,5 +84,10 @@ public sealed class Plugin : BaseUnityPlugin
     internal void OnSilkSpecialStateEntered(HutongGames.PlayMaker.Fsm fsm, string stateName)
     {
         runtime.OnSilkSpecialStateEntered(fsm, stateName);
+    }
+
+    internal void ApplyCounterLanding()
+    {
+        runtime.ApplyCounterLanding();
     }
 }

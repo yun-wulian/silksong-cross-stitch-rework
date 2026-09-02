@@ -2,7 +2,7 @@
   <PropertyGroup>
     <AssemblyName>CrossStitchRework</AssemblyName>
     <RootNamespace>CrossStitchRework</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.4.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +36,10 @@
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GameManagedDir)UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.Physics2DModule">
+      <HintPath>$(GameManagedDir)UnityEngine.Physics2DModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine">

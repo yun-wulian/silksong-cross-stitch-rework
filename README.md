@@ -16,6 +16,9 @@ A BepInEx 6 runtime rework of the Cross Stitch (`Parry` / `PARRY`) skill.
 - The hero stays invulnerable for the complete successful-guard/counter-ready state; movement cancel carries a short additional invulnerability window.
 - The success pose reuses the stable final guard frame, avoiding the apparent backward slide caused by the original `Parry Clash` sprite pivots.
 - Debug mode can unlock the counterattack without changing `hasParry` or `defeatedPhantom`.
+- The native `Parry Catch` backward velocity and deceleration are removed.
+- Releasing attack lands the hero at the position where the counter began.
+- Holding attack through the counter lands the hero at the forward end of the slash hitbox, clamped before solid terrain.
 
 ## Optional independent guard binding
 
@@ -24,6 +27,10 @@ When Better Bindings 0.3.0 or newer is installed, this plugin registers a locali
 the native `PARRY` FSM path without requiring Cross Stitch to be equipped. The
 equipped skill input remains available as a secondary route if the player chooses
 to keep Cross Stitch in a skill slot.
+
+The shortcut supplies labels for every language currently supported by Better
+Bindings and follows its live language-change notifications, so reopening the game
+or rebuilding the menu is not required after changing languages.
 
 The integration is a soft dependency loaded through the public API at runtime.
 Without Better Bindings, Cross Stitch remains visible in the inventory and is

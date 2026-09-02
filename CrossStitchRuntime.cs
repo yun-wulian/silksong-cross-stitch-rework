@@ -16,9 +16,13 @@ internal sealed class CrossStitchRuntime
     private const string CounterState = "Parry Cross Slash";
     private const string CounterLeftState = "CrossSlash L";
     private const string CounterRightState = "CrossSlash R";
+    private const string CounterCatchState = "Parry Catch";
+    private const string CounterEndState = "Parry End";
     private const string ChainGuardState = "Parry Flip?";
     private const string ExitState = "Special End";
     private const float RecoveryAnimationDuration = 0.25f;
+    private const int TerrainLayerMask = 8448;
+    private const float LandingWallInset = 0.35f;
 
     private readonly object successInvulnerabilitySource = new();
     private readonly object movementInvulnerabilitySource = new();
@@ -43,6 +47,14 @@ internal sealed class CrossStitchRuntime
     private HeroController? movementInvulnerabilityHero;
     private float movementInvulnerabilityEndsAt;
 
+    private bool counterLandingPending;
+    private bool counterEndpointValid;
+    private bool counterAttackWasReleased;
+    private HeroController? counterHero;
+    private Fsm? counterFsm;
+    private Vector2 counterOrigin;
+    private Vector2 counterEndpoint;
+
     internal bool HasIndependentGuardBinding => betterBindings.IsRegistered;
 
     internal static bool IsCrossStitchTool(ToolItem? tool)
@@ -55,6 +67,7 @@ internal sealed class CrossStitchRuntime
     internal void Update()
     {
         UpdateMovementInvulnerability();
+        UpdateCounterLandingInput();
         EnsureInitialAccess();
         UpdateSuccessfulGuard();
     }
@@ -106,6 +119,70 @@ internal sealed class CrossStitchRuntime
         {
             EndSuccessfulGuard(clearParryAttack: true);
         }
+
+        if (!counterLandingPending || !ReferenceEquals(counterFsm, fsm))
+        {
+            return;
+        }
+
+        if (string.Equals(stateName, CounterState, StringComparison.Ordinal))
+        {
+            CaptureCounterEndpoint();
+        }
+        else if (!string.Equals(stateName, CounterLeftState, StringComparison.Ordinal) &&
+                 !string.Equals(stateName, CounterRightState, StringComparison.Ordinal) &&
+                 !string.Equals(stateName, CounterCatchState, StringComparison.Ordinal) &&
+                 !string.Equals(stateName, CounterEndState, StringComparison.Ordinal))
+        {
+            ClearCounterLanding();
+        }
+    }
+
+    internal void ApplyCounterLanding()
+    {
+        if (!counterLandingPending)
+        {
+            return;
+        }
+
+        HeroController? hero = counterHero;
+        if (hero == null)
+        {
+            ClearCounterLanding();
+            return;
+        }
+
+        InputHandler? input = GetInputHandler();
+        bool attackIsPressed = input?.inputActions.Attack.IsPressed == true;
+        bool landForward = !counterAttackWasReleased && counterEndpointValid;
+        Vector2 target = landForward ? ClampLandingToTerrain(counterOrigin, counterEndpoint) : counterOrigin;
+
+        if (Plugin.DebugCounterWithoutPhantom.Value)
+        {
+            Plugin.Log.LogInfo(
+                $"Counter landing: forward={landForward}, released={counterAttackWasReleased}, " +
+                $"pressedNow={attackIsPressed}, endpointValid={counterEndpointValid}, " +
+                $"origin={counterOrigin}, endpoint={counterEndpoint}, target={target}.");
+        }
+
+        Rigidbody2D body = hero.GetComponent<Rigidbody2D>();
+        Vector3 currentPosition = hero.transform.position;
+        hero.transform.position = new Vector3(target.x, target.y, currentPosition.z);
+        if (body != null)
+        {
+            body.linearVelocity = Vector2.zero;
+            body.position = target;
+        }
+        Physics2D.SyncTransforms();
+
+        if (Plugin.DebugCounterWithoutPhantom.Value)
+        {
+            Vector2 rigidbodyPosition = body != null ? body.position : (Vector2)hero.transform.position;
+            Plugin.Log.LogInfo(
+                $"Counter landing committed: transform={hero.transform.position}, rigidbody={rigidbodyPosition}.");
+        }
+
+        ClearCounterLanding();
     }
 
     internal void Dispose()
@@ -113,6 +190,7 @@ internal sealed class CrossStitchRuntime
         EndSuccessfulGuard(clearParryAttack: true);
         ReleaseMovementInvulnerability();
         betterBindings.Dispose();
+        ClearCounterLanding();
     }
 
     private void EnsureInitialAccess()
@@ -295,6 +373,7 @@ internal sealed class CrossStitchRuntime
 
         hero.TakeSilk(cost);
         hero.ResetInputQueues();
+        PrepareCounterLanding(hero, fsm);
         EndSuccessfulGuard(clearParryAttack: true);
         hero.cState.parryAttack = true;
 
@@ -499,6 +578,118 @@ internal sealed class CrossStitchRuntime
         }
         movementInvulnerabilityHero = null;
         movementInvulnerabilityEndsAt = 0f;
+    }
+
+    private void PrepareCounterLanding(HeroController hero, Fsm fsm)
+    {
+        Rigidbody2D body = hero.GetComponent<Rigidbody2D>();
+        counterOrigin = body != null ? body.position : (Vector2)hero.transform.position;
+        counterEndpoint = counterOrigin;
+        counterEndpointValid = false;
+        counterAttackWasReleased = false;
+        counterLandingPending = true;
+        counterHero = hero;
+        counterFsm = fsm;
+    }
+
+    private void CaptureCounterEndpoint()
+    {
+        HeroController? hero = counterHero;
+        Fsm? fsm = counterFsm;
+        if (hero == null || fsm == null)
+        {
+            return;
+        }
+
+        GameObject? effect = fsm.Variables.FindFsmGameObject("Temp")?.Value;
+        PolygonCollider2D? collider = effect != null
+            ? effect.GetComponentInChildren<PolygonCollider2D>(includeInactive: true)
+            : null;
+        if (collider == null)
+        {
+            Plugin.Log.LogWarning("Could not resolve the active Cross Stitch slash collider; held attack will use the origin landing.");
+            return;
+        }
+
+        float farthestDistance = 0f;
+        Vector2 farthestPoint = counterOrigin;
+        for (int pathIndex = 0; pathIndex < collider.pathCount; pathIndex++)
+        {
+            Vector2[] path = collider.GetPath(pathIndex);
+            foreach (Vector2 point in path)
+            {
+                Vector3 world = collider.transform.TransformPoint(point);
+                float distanceFromOrigin = Mathf.Abs(world.x - counterOrigin.x);
+                if (distanceFromOrigin > farthestDistance)
+                {
+                    farthestDistance = distanceFromOrigin;
+                    farthestPoint = new Vector2(world.x, counterOrigin.y);
+                }
+            }
+        }
+
+        if (farthestDistance > 0f)
+        {
+            counterEndpoint = farthestPoint;
+            counterEndpointValid = true;
+        }
+
+        if (Plugin.DebugCounterWithoutPhantom.Value)
+        {
+            Plugin.Log.LogInfo(
+                $"Counter endpoint: valid={counterEndpointValid}, collider={collider.name}, " +
+                $"origin={counterOrigin}, endpoint={counterEndpoint}, distance={farthestDistance:0.###}.");
+        }
+    }
+
+    private void UpdateCounterLandingInput()
+    {
+        if (!counterLandingPending || counterAttackWasReleased)
+        {
+            return;
+        }
+
+        InputHandler? input = GetInputHandler();
+        if (input?.inputActions.Attack.WasReleased == true)
+        {
+            counterAttackWasReleased = true;
+        }
+    }
+
+    private static Vector2 ClampLandingToTerrain(Vector2 origin, Vector2 requested)
+    {
+        Vector2 delta = requested - origin;
+        float distance = Mathf.Abs(delta.x);
+        if (distance <= Mathf.Epsilon)
+        {
+            return origin;
+        }
+
+        float direction = Mathf.Sign(delta.x);
+        RaycastHit2D[] hits = Physics2D.RaycastAll(origin, Vector2.right * direction, distance, TerrainLayerMask);
+        foreach (RaycastHit2D hit in hits)
+        {
+            if (hit.collider == null || hit.collider.isTrigger || hit.distance <= Mathf.Epsilon)
+            {
+                continue;
+            }
+
+            float safeDistance = Mathf.Max(0f, hit.distance - LandingWallInset);
+            return new Vector2(origin.x + direction * safeDistance, origin.y);
+        }
+
+        return requested;
+    }
+
+    private void ClearCounterLanding()
+    {
+        counterLandingPending = false;
+        counterEndpointValid = false;
+        counterAttackWasReleased = false;
+        counterHero = null;
+        counterFsm = null;
+        counterOrigin = Vector2.zero;
+        counterEndpoint = Vector2.zero;
     }
 
     private static InputHandler? GetInputHandler()

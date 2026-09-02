@@ -45,6 +45,14 @@ internal sealed class BetterBindingsBridge : IDisposable
             ["EN"] = "Cross Stitch Guard",
             ["ZH"] = "十字绣格挡",
             ["ZH_TW"] = "十字繡格擋",
+            ["FR"] = "Garde au point de croix",
+            ["DE"] = "Kreuzstich-Parade",
+            ["ES"] = "Guardia de punto de cruz",
+            ["KO"] = "크로스 스티치 가드",
+            ["JA"] = "クロスステッチガード",
+            ["IT"] = "Guardia a punto croce",
+            ["PT"] = "Guarda de ponto cruz",
+            ["RU"] = "Блок крестовым стежком",
         };
 
         try

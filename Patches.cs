@@ -18,7 +18,8 @@ internal static class SilkSpecialsFsmPatch
 
         FsmState counterReady = __instance.Fsm.GetState("Change Facing?");
         FsmState parryClash = __instance.Fsm.GetState("Parry Clash");
-        if (counterReady == null || parryClash == null)
+        FsmState parryCatch = __instance.Fsm.GetState("Parry Catch");
+        if (counterReady == null || parryClash == null || parryCatch == null)
         {
             Plugin.Log.LogError("Could not find the Cross Stitch states required for the rework.");
             return;
@@ -34,6 +35,16 @@ internal static class SilkSpecialsFsmPatch
             return;
         }
 
+        FsmStateAction[] catchActions = parryCatch.Actions;
+        int catchVelocityIndex = Array.FindIndex(
+            catchActions,
+            action => action is SetVelocityByScale or CounterLandingAction);
+        if (catchVelocityIndex < 0)
+        {
+            Plugin.Log.LogError("Could not find the Cross Stitch catch movement action; no FSM changes were applied.");
+            return;
+        }
+
         if (clashActions[clashAnimationIndex] is not SuccessfulGuardPoseAction)
         {
             clashActions[clashAnimationIndex] = new SuccessfulGuardPoseAction();
@@ -46,7 +57,13 @@ internal static class SilkSpecialsFsmPatch
             counterReady.Transitions = Array.Empty<FsmTransition>();
         }
 
-        Plugin.Log.LogInfo("Installed the stable success pose and manual Cross Stitch counter-ready state.");
+        if (catchActions[catchVelocityIndex] is not CounterLandingAction)
+        {
+            catchActions[catchVelocityIndex] = new CounterLandingAction();
+        }
+        parryCatch.Actions = Array.FindAll(catchActions, action => action is not DecelerateXY);
+
+        Plugin.Log.LogInfo("Installed the stable success pose, manual counter-ready state, and selectable counter landing.");
     }
 }
 
@@ -92,6 +109,15 @@ internal sealed class SuccessfulGuardPoseAction : FsmStateAction
         {
             Finish();
         }
+    }
+}
+
+internal sealed class CounterLandingAction : FsmStateAction
+{
+    public override void OnEnter()
+    {
+        Plugin.Instance?.ApplyCounterLanding();
+        Finish();
     }
 }
 
