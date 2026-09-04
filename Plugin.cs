@@ -12,7 +12,7 @@ public sealed class Plugin : BaseUnityPlugin
 {
     public const string PluginGuid = "modcraft.silksong.cross-stitch-rework";
     public const string PluginName = "Cross Stitch Rework";
-    public const string PluginVersion = "0.5.5";
+    public const string PluginVersion = "0.5.7";
     public const string BetterBindingsGuid = "modcraft.silksong.better-bindings";
 
     internal static Plugin? Instance { get; private set; }

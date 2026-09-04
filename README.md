@@ -11,10 +11,12 @@ A BepInEx 5.4.23.4 runtime rework of the Cross Stitch (`Parry` / `PARRY`) skill.
 - A successful guard restores 3 silk.
 - A successful guard no longer counters automatically.
 - Press attack during the counter window to counter when `hasParry` is true and the current native `SilkSkillCost` can be paid; the same native cost is then consumed.
+- Holding attack before the guard succeeds buffers the input and counters immediately on success.
 - Press Cross Stitch again after a successful guard to chain another guard.
 - A successful guard consumes only the overlapping damage source that triggered it. That source cannot damage or be guarded again during the same contact lifecycle.
 - Separation must be observed for two consecutive physics steps outside an enlarged release box, preventing hurtbox changes, small guard movement, or one-frame contact jitter from rearming the same hit.
 - Attack and other skill inputs cancel immediately; held movement cancels after a short delay.
+- The successful-guard state participates in the native `CanDoFSMCancelMove` protocol, allowing external FSM-based actions such as Special Attack to cancel it without opening the native normal-attack path.
 - The hero stays invulnerable for the complete successful-guard/counter-ready state. Any attack, counter, skill, tool, or movement action used to cancel that state carries a short additional invulnerability window; only a chained guard deliberately drops it.
 - The success pose reuses the stable final guard frame, avoiding the apparent backward slide caused by the original `Parry Clash` sprite pivots.
 - Debug mode can unlock the counterattack without changing `hasParry` or `defeatedPhantom`.

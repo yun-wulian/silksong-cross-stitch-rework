@@ -44,6 +44,8 @@ internal sealed class CrossStitchRuntime
     private float successStartedAt;
     private HeroController? successHero;
     private Fsm? successFsm;
+    private HeroController? cancelableFsmMoveHero;
+    private bool previousCancelableFsmMove;
 
     private HeroController? actionInvulnerabilityHero;
     private float actionInvulnerabilityEndsAt;
@@ -97,9 +99,10 @@ internal sealed class CrossStitchRuntime
         successFsm = fsm;
         successStartedAt = Time.time;
         recoveryAnimationStarted = false;
+        AcquireCancelableFsmMove(hero);
 
         InputHandler? input = GetInputHandler();
-        bufferedAttack = input?.inputActions.Attack.WasPressed ?? false;
+        bufferedAttack = input?.inputActions.Attack.IsPressed ?? false;
         bufferedQuickCast = input?.inputActions.QuickCast.WasPressed ?? false;
         bufferedCast = input?.inputActions.Cast.WasPressed ?? false;
         bufferedDreamNail = input?.inputActions.DreamNail.WasPressed ?? false;
@@ -118,7 +121,15 @@ internal sealed class CrossStitchRuntime
             !string.Equals(stateName, ParryClashState, StringComparison.Ordinal) &&
             !string.Equals(stateName, CounterReadyState, StringComparison.Ordinal))
         {
-            EndSuccessfulGuard(clearParryAttack: true);
+            HeroController? hero = successHero;
+            if (hero != null)
+            {
+                EndSuccessfulGuardForAction(hero);
+            }
+            else
+            {
+                EndSuccessfulGuard(clearParryAttack: true);
+            }
         }
 
         if (!counterLandingPending || !ReferenceEquals(counterFsm, fsm))
@@ -547,6 +558,7 @@ internal sealed class CrossStitchRuntime
     {
         HeroController? hero = successHero;
         ReleaseSuccessInvulnerability();
+        ReleaseCancelableFsmMove();
         if (clearParryAttack && hero != null)
         {
             hero.cState.parrying = false;
@@ -562,6 +574,25 @@ internal sealed class CrossStitchRuntime
         bufferedCast = false;
         bufferedDreamNail = false;
         bufferedTaunt = false;
+    }
+
+    private void AcquireCancelableFsmMove(HeroController hero)
+    {
+        ReleaseCancelableFsmMove();
+        cancelableFsmMoveHero = hero;
+        previousCancelableFsmMove = hero.cState.isInCancelableFSMMove;
+        hero.cState.isInCancelableFSMMove = true;
+    }
+
+    private void ReleaseCancelableFsmMove()
+    {
+        if (cancelableFsmMoveHero != null)
+        {
+            cancelableFsmMoveHero.cState.isInCancelableFSMMove = previousCancelableFsmMove;
+        }
+
+        cancelableFsmMoveHero = null;
+        previousCancelableFsmMove = false;
     }
 
     private void ReleaseSuccessInvulnerability()

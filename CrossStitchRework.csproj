@@ -2,7 +2,7 @@
   <PropertyGroup>
     <AssemblyName>CrossStitchRework</AssemblyName>
     <RootNamespace>CrossStitchRework</RootNamespace>
-    <Version>0.5.5</Version>
+    <Version>0.5.7</Version>
   </PropertyGroup>
 
   <ItemGroup>
